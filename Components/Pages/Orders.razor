@@ -1,4 +1,5 @@
 ﻿@page "/orders"
+@using System.Text.Json;
 @using Ecommerce.Components.Shared
 @using Ecommerce.Components.Shared.Misc
 @inject NavigationManager Navigation
@@ -28,40 +29,25 @@
         <div class="main">
             <div class="header-options">
                 <div class="group">
-                    <h6>Sort by</h6>
-
-                    <!-- Filter Orders buttons
-                    Add an 'active' class to the button if selected.
-                    E.g. <button class="active">All</button>
-                    -->
+                    <h6>Filter by Status</h6>
                     <div class="radio-group">
-                        <button>All</button>
-                        <button>Active</button>
-                        <button>Completed</button>
+                        <button class="@(FilterStatus == "all" ? "active" : "")" @onclick='() => FilterOrders("all")'>All</button>
+                        <button class="@(FilterStatus == "active" ? "active" : "")" @onclick='() => FilterOrders("active")'>Active</button>
+                        <button class="@(FilterStatus == "completed" ? "active" : "")" @onclick='() => FilterOrders("completed")'>Completed</button>
                     </div>
                 </div>
 
                 <div class="group">
                     <h6>Sort by</h6>
-
-                    <!-- Sort Orders buttons
-                    Add an 'active' class to the button if selected.
-                    -->
                     <div class="radio-group">
-                        <button>Date</button>
-                        <button>Item Qty</button>
-                        <button>Total</button>
+                        <button class="@(SortField == "date" ? "active" : "")" @onclick='() => UpdateSorting("date")'>Date</button>
+                        <button class="@(SortField == "item_qty" ? "active" : "")" @onclick='() => UpdateSorting("item_qty")'>Item Qty</button>
+                        <button class="@(SortField == "total" ? "active" : "")" @onclick='() => UpdateSorting("total")'>Total</button>
                     </div>
 
-                    <!-- Sort Order buttons 
-                    Add an 'active' class to the button if selected.
-                    -->
                     <div class="radio-group">
-                        <!-- Ascending button -->
-                        <button><svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M94.44,44.2,55.14,4.9a7.27,7.27,0,0,0-10.28,0L5.56,44.2a7.28,7.28,0,0,0,0,10.29h0a7.28,7.28,0,0,0,10.29,0L42.72,27.61V90a7.28,7.28,0,0,0,14.56,0V27.61L84.15,54.49h0A7.28,7.28,0,0,0,94.44,44.2Z" /></svg></button>
-                        
-                        <!-- Descending button -->
-                        <button><svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M5.56,55.8l39.3,39.3a7.27,7.27,0,0,0,10.28,0l39.3-39.3a7.28,7.28,0,0,0,0-10.29h0a7.28,7.28,0,0,0-10.29,0L57.28,72.39V10.05a7.28,7.28,0,1,0-14.56,0V72.39L15.85,45.51h0A7.28,7.28,0,0,0,5.56,55.8Z" /></svg></button>
+                        <button class="@(IsAscending ? "active" : "")" @onclick="() => IsAscending = true">Ascending</button>
+                        <button class="@(IsAscending ? "" : "active")" @onclick="() => IsAscending = false">Descending</button>
                     </div>
                 </div>
             </div>
@@ -76,11 +62,26 @@
                     <p>Action</p>
                 </div>
 
-                <!-- Orders List -->
                 <div class="body">
-                    <!-- Sample Orders -->
-                    @for (int i = 0; i < 15; i++) {
-                        <OrdersCard/>
+                    @foreach (var order in GetFilteredOrders())
+                    {
+                        <div class="row admin-orders-spacing">
+                            <p>@order.status</p>
+                            <p>@order.reference_number</p>
+                            <p>@order.date.ToString("yyyy-MM-dd")</p>
+                            <p>@order.products.Sum(p => p.quantity)</p>
+                            <p>₱@FormatPrice(order.products.Sum(p => p.price * p.quantity))</p>
+                            <p>
+                                @if (order.status == "active")
+                                {
+                                    <button class="complete" @onclick='() => CompleteOrder(order.id)'>Complete Order</button>
+                                }
+                                else
+                                {
+                                    <span class="completed">Completed</span>
+                                }
+                            </p>
+                        </div>
                     }
                 </div>
             </div>
@@ -89,5 +90,95 @@
 </div>
 
 @code {
-    // Place your code here
+    private List<Order> OrderList = new();
+    private string FilterStatus = "all";
+    private string SortField = "date";
+    private bool IsAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchOrders();
+    }
+
+    private async Task FetchOrders()
+    {
+        using HttpClient client = new();
+        client.BaseAddress = new Uri("https://prof-elec.vercel.app/");
+        var response = await client.GetAsync("orders");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        OrderList = JsonSerializer.Deserialize<List<Order>>(json);
+    }
+
+    private IEnumerable<Order> GetFilteredOrders()
+    {
+        var filtered = FilterStatus switch
+        {
+            "active" => OrderList.Where(o => o.status == "active"),
+            "completed" => OrderList.Where(o => o.status == "completed"),
+            _ => OrderList
+        };
+
+        return SortField switch
+        {
+            "date" => IsAscending ? filtered.OrderBy(o => o.date) : filtered.OrderByDescending(o => o.date),
+            "item_qty" => IsAscending ? filtered.OrderBy(o => o.products.Sum(p => p.quantity)) : filtered.OrderByDescending(o => o.products.Sum(p => p.quantity)),
+            "total" => IsAscending ? filtered.OrderBy(o => o.products.Sum(p => p.price * p.quantity)) : filtered.OrderByDescending(o => o.products.Sum(p => p.price * p.quantity)),
+            _ => filtered
+        };
+    }
+
+    private void FilterOrders(string status)
+    {
+        FilterStatus = status;
+    }
+
+    private void UpdateSorting(string field)
+    {
+        if (SortField == field)
+        {
+            IsAscending = !IsAscending;
+        }
+        else
+        {
+            SortField = field;
+            IsAscending = true;
+        }
+    }
+
+    private async Task CompleteOrder(int orderId)
+    {
+        var order = OrderList.FirstOrDefault(o => o.id == orderId);
+        if (order != null && order.status == "active")
+        {
+            order.status = "completed";
+            await Task.Delay(500); // Simulate API update (replace with actual API call if needed)
+        }
+    }
+
+    private string FormatPrice(decimal price)
+    {
+        return price.ToString("N0"); // Formats price as 1,000 or similar based on locale
+    }
+
+    public class Order
+    {
+        public int id { get; set; }
+        public DateTime date { get; set; }
+        public string status { get; set; }
+        public string reference_number { get; set; }
+        public List<Product> products { get; set; } = new();
+    }
+
+    public class Product
+    {
+        public int id { get; set; }
+        public string name { get; set; }
+        public decimal price { get; set; }
+        public string brand { get; set; }
+        public string category { get; set; }
+        public string type { get; set; }
+        public string image_url { get; set; }
+        public int quantity { get; set; }
+    }
 }
