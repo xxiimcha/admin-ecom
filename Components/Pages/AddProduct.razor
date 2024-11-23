@@ -1,4 +1,6 @@
 ﻿@page "/add-product"
+@using System.Text.Json;
+@using System.Net.Http.Json;
 @using Ecommerce.Components.Shared
 @using Ecommerce.Components.Shared.Misc
 @inject NavigationManager Navigation
@@ -26,7 +28,6 @@
         </div>
 
         <div class="main">
-            <!-- Upload image button -->
             <button class="upload-image">
                 <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M63.09,25.91h-48A11.07,11.07,0,0,0,4,37V85a11.08,11.08,0,0,0,11,11h48a11,11,0,0,0,10.67-8.33A2.21,2.21,0,0,0,74,86V37a11.08,11.08,0,0,0-11-11Zm-48,4.41h48A6.66,6.66,0,0,1,69.71,37V78.34L62.4,65.69h0a5.9,5.9,0,0,0-10.16,0L50,69.55,33.2,40.35a6,6,0,0,0-5.11-2.9A5.86,5.86,0,0,0,23,40.35L8.64,65.64V37a6.67,6.67,0,0,1,6.43-6.63Zm48,61.08h-48A6.66,6.66,0,0,1,8.64,85V74.48L27,42.56a1.36,1.36,0,0,1,1.24-.69,1.33,1.33,0,0,1,1.24.69L48.28,74.75a2.3,2.3,0,0,0,3.82,0l4.19-7.17a1.3,1.3,0,0,1,1.24-.69,1.41,1.41,0,0,1,1.24.69L69.44,86.8a6.64,6.64,0,0,1-6.35,4.6ZM94.55,44.49,82.68,65.18a2.16,2.16,0,0,1-1.93,1.11,2.49,2.49,0,0,1-1.1-.28,2.17,2.17,0,0,1-1-1.35A2.19,2.19,0,0,1,78.87,63l11.86-20.7a6.68,6.68,0,0,0,.72-5.11,6.75,6.75,0,0,0-3.15-4.09L46.63,9.16a6.64,6.64,0,0,0-9.2,2.44l-4.78,8.79A2.27,2.27,0,0,1,31.3,21.5a2.21,2.21,0,0,1-2.76-1.6,2.17,2.17,0,0,1,.29-1.72l4.92-8.6A11,11,0,0,1,48.84,5.49L90.23,29.4h0a11,11,0,0,1,4.32,15.09ZM56.42,50a6.76,6.76,0,1,0-4.78-2,6.76,6.76,0,0,0,4.78,2Zm0-9.2a2.35,2.35,0,0,1,0,4.6,2.35,2.35,0,0,1,0-4.6Z" /></svg>
 
@@ -34,9 +35,8 @@
 
                 <!-- Product image
                 Change the src to change the image -->
-                <img src="" alt=" "/>
+                <img src="" alt=" " />
             </button>
-
             <div class="form">
                 <h6>Product Details</h6>
 
@@ -44,80 +44,122 @@
                 <div class="inputs">
                     <div class="input-group">
                         <p class="label light">Product Name</p>
-
-                        <!-- Product Name input -->
-                        <input type="text" placeholder="Product Name">
+                        <input type="text" @bind="Product.Name" placeholder="Product Name" />
                     </div>
 
                     <div class="input-group">
                         <p class="label light">Product Brand</p>
-
-                        <!-- Product Brand input -->
-                        <input type="text" placeholder="Product Brand">
+                        <input type="text" @bind="Product.Brand" placeholder="Product Brand" />
                     </div>
 
                     <div class="category-options input-group">
                         <p class="label light">Categories</p>
-
-                        <!-- Category options 
-                        Add an 'active' class to the button if selected.
-                        E.g. <button class="outline active"><p>Living Room</p></button>
-                        -->
                         <div class="container">
-                            <button class="outline"><p>Living Room</p></button>
-                            <button class="outline"><p>Bedroom</p></button>
-                            <button class="outline"><p>Kitchen</p></button>
-                            <button class="outline"><p>Dining Room</p> </button>
-                            <button class="outline"><p>Bathroom</p></button>
-                            <button class="outline"><p>Outdoor</p></button>
+                            @foreach (var category in Categories)
+                            {
+                                <button class="outline @(Product.Category == category ? "active" : "")"
+                                        @onclick="() => Product.Category = category">
+                                    <p>@category</p>
+                                </button>
+                            }
                         </div>
                     </div>
 
                     <div class="input-group">
                         <p class="label light">Type</p>
-
-                        <!-- Type input -->
-                        <input type="text" placeholder="Type">
+                        <input type="text" @bind="Product.Type" placeholder="Type" />
                     </div>
 
                     <div class="row">
                         <div class="input-group">
                             <p class="label light">Price</p>
-
-                            <!-- Price input -->
-                            <input type="number" placeholder="Price">
+                            <input type="number" @bind="Product.Price" placeholder="Price" />
                         </div>
 
                         <div class="input-group">
                             <p class="label light">Initial Stock</p>
-
-                            <!-- Initial Stock input -->
-                            <input type="text" placeholder="Initial Stock">
+                            <input type="number" @bind="Product.StockQuantity" placeholder="Initial Stock" />
                         </div>
                     </div>
 
                     <div class="input-group">
                         <p class="label light">Short Description</p>
-
-                        <!-- Short Description input -->
-                        <textarea rows="1" placeholder="Short Description" />
+                        <textarea rows="1" @bind="Product.ShortDescription" placeholder="Short Description"></textarea>
                     </div>
 
                     <div class="input-group">
                         <p class="label light">Long Description</p>
-
-                        <!-- Long Description input -->
-                        <textarea rows="10" placeholder="Long Description" />
+                        <textarea rows="10" @bind="Product.LongDescription" placeholder="Long Description"></textarea>
                     </div>
                 </div>
 
                 <!-- Add Product button -->
-                <button class="primary">Add product</button>
+                <button class="primary" @onclick="SubmitNewProduct">Add Product</button>
+                @if (IsSubmitting)
+                {
+                    <p>Adding product...</p>
+                }
+                @if (!string.IsNullOrEmpty(StatusMessage))
+                {
+                    <p>@StatusMessage</p>
+                }
             </div>
         </div>
     </div>
 </div>
 
 @code {
-    // Place your code here
+    private ProductModel Product = new ProductModel();
+    private bool IsSubmitting = false;
+    private string StatusMessage = string.Empty;
+
+    private readonly List<string> Categories = new List<string>
+    {
+        "Living Room", "Bedroom", "Kitchen", "Dining Room", "Bathroom", "Outdoor"
+    };
+
+    private async Task SubmitNewProduct()
+    {
+        IsSubmitting = true;
+        StatusMessage = string.Empty;
+
+        try
+        {
+            using HttpClient client = new();
+            client.BaseAddress = new Uri("https://prof-elec.vercel.app/");
+            var response = await client.PostAsJsonAsync("products", Product);
+
+            if (response.IsSuccessStatusCode)
+            {
+                StatusMessage = "Product added successfully!";
+                Product = new ProductModel(); // Clear the form
+            }
+            else
+            {
+                StatusMessage = "Failed to add product. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+
+    public class ProductModel
+    {
+        public string Name { get; set; }
+        public string Brand { get; set; }
+        public string Category { get; set; }
+        public string Type { get; set; }
+        public string ShortDescription { get; set; }
+        public string LongDescription { get; set; }
+        public decimal Price { get; set; }
+        public int StockQuantity { get; set; }
+    }
+
 }

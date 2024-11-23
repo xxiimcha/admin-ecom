@@ -1,39 +1,112 @@
-﻿<div class="card admin-table-product admin-orders-spacing">
-    <!-- Order status 
-    Change the status of h5 accordingly.
+﻿@using System.Text.Json;
+@foreach (var order in Orders)
+{
+    <div class="card admin-table-product admin-orders-spacing">
+        <!-- Order Status -->
+        <div class="status">
+            <h5 class="@(order.Status == "completed" ? "completed" : "active")">
+                @(order.Status == "completed" ? "Completed" : "Active")
+            </h5>
+        </div>
 
-    E.g. <h5 class="active">Active</h5> (Active)
-    E.g. <h5 class="completed">Completed</h5> (Completed)
-    -->
-    <div class="status">
-        <h5 class="active">Active</h5>
-    </div>
+        <!-- Order Details -->
+        <p class="ref-num">#@order.ReferenceNumber</p>
+        <p class="date">@order.Date.ToString("MMMM dd, yyyy")</p>
+        <p class="item-qty">@order.Products.Sum(p => p.Quantity)</p>
+        <p class="total">₱@FormatPrice(order.Products.Sum(p => p.Price * p.Quantity))</p>
 
-    <!-- Order Details -->
-    <p class="ref-num">#ORD0032xz</p>
-    <p class="date">September 12, 2024</p>
-    <p class="item-qty">4</p>
-    <p class="total">₱4,978</p>
-
-    <!-- Options button 
-    If the order is already completed, add a 'disabled' class to the button.
-    E.g. <button class="options disabled">
-    -->
-    <button class="options"><svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M15.53,61.51A11.53,11.53,0,1,1,27.06,50,11.53,11.53,0,0,1,15.53,61.51" /><path d="M50,61.51A11.53,11.53,0,1,1,61.52,50,11.54,11.54,0,0,1,50,61.51" /><path d="M72.91,50a11.52,11.52,0,1,0,3.38-8.16A11.53,11.53,0,0,0,72.91,50Z" /></svg></button>
-
-    <!-- Options menu -->
-    <div class="options-menu">
-
-        <!-- Complete Order button -->
-        <button class="complete">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 250"><g id="Layer_2" data-name="Layer 2"><path d="M235.83,82.55,111.38,207a29.54,29.54,0,0,1-41.51,0L14.58,151.66a29.32,29.32,0,0,1,41.47-41.47l34.56,34.59L194.35,41.05a29.52,29.52,0,0,1,41.48,0A29.56,29.56,0,0,1,235.83,82.55Z" /></g></svg>
-            
-            <p>Complete Order</p>
+        <!-- Options Button -->
+        <button class="options @(order.Status == "completed" ? "disabled" : "")" @onclick="() => ToggleOptions(order.Id)">
+            <svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                <path d="M15.53,61.51A11.53,11.53,0,1,1,27.06,50,11.53,11.53,0,0,1,15.53,61.51" />
+                <path d="M50,61.51A11.53,11.53,0,1,1,61.52,50,11.54,11.54,0,0,1,50,61.51" />
+                <path d="M72.91,50a11.52,11.52,0,1,0,3.38-8.16A11.53,11.53,0,0,0,72.91,50Z" />
+            </svg>
         </button>
-    </div>
-</div>
 
+        <!-- Options Menu -->
+        @if (ShowOptions == order.Id)
+        {
+            <div class="options-menu">
+                @if (order.Status != "completed")
+                {
+                    <!-- Complete Order Button -->
+                    <button class="complete" @onclick="() => CompleteOrder(order.Id)">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 250">
+                            <g id="Layer_2" data-name="Layer 2">
+                                <path d="M235.83,82.55,111.38,207a29.54,29.54,0,0,1-41.51,0L14.58,151.66a29.32,29.32,0,0,1,41.47-41.47l34.56,34.59L194.35,41.05a29.52,29.52,0,0,1,41.48,0A29.56,29.56,0,0,1,235.83,82.55Z" />
+                            </g>
+                        </svg>
+                        <p>Complete Order</p>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+}
 
 @code {
-    // Place your code here
+    private List<Order> Orders = new();
+    private int ShowOptions = 0; // Tracks which order's options are currently visible
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FetchOrders();
+    }
+
+    private async Task FetchOrders()
+    {
+        using HttpClient client = new();
+        client.BaseAddress = new Uri("https://prof-elec.vercel.app/");
+        var response = await client.GetAsync("orders");
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        Orders = JsonSerializer.Deserialize<List<Order>>(json);
+    }
+
+    private void ToggleOptions(int orderId)
+    {
+        ShowOptions = ShowOptions == orderId ? 0 : orderId; // Toggles the visibility of the options menu
+    }
+
+    private async Task CompleteOrder(int orderId)
+    {
+        var order = Orders.FirstOrDefault(o => o.Id == orderId);
+        if (order != null && order.Status == "active")
+        {
+            order.Status = "completed";
+
+            // Update the order status on the server
+            using HttpClient client = new();
+            client.BaseAddress = new Uri("https://prof-elec.vercel.app/");
+            var response = await client.PutAsJsonAsync($"orders/{orderId}/complete", order);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                order.Status = "active"; // Revert on failure
+            }
+        }
+    }
+
+    private string FormatPrice(decimal price)
+    {
+        return price.ToString("N0"); // Formats price with a thousands separator (e.g., 4,978)
+    }
+
+    public class Order
+    {
+        public int Id { get; set; }
+        public string Status { get; set; }
+        public string ReferenceNumber { get; set; }
+        public DateTime Date { get; set; }
+        public List<Product> Products { get; set; } = new();
+    }
+
+    public class Product
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public decimal Price { get; set; }
+        public int Quantity { get; set; }
+    }
 }
